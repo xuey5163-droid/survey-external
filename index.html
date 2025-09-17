@@ -770,7 +770,7 @@
         let num = parseFloat(cleaned) / 100;
         if (isNaN(num)) num = 0;
         if (num > 1) num = 1;
-        if (num < 0) num = 0;
+        if (num < -1) num = -1;
         input.dataset.rawValue = num;
 
         input.value = cleaned;
@@ -1737,3 +1737,4 @@
 </body>
 
 </html>
+
