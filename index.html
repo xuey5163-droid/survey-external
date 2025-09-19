@@ -1590,47 +1590,75 @@
         const productFields = products.map((product, index) => {
           const fields = {};
           const normProductName = normalizeName(product.name);
+
           fields.customer = data.customer;
           fields.customerKey = customerKey;
           fields.Product = product.name;
+
           let claimCount = 0;
           let claimMgtCount = 0;
           let hasRanking = false;
+
+          // 获取 other_claim_name
+          const otherClaimRaw = data["other_claim_name"];
+          const otherClaimNorm = otherClaimRaw ? normalizeName(otherClaimRaw) : null;
+
           for (let key in data) {
             if (key.includes("|")) {
               let [field, pName] = key.split("|");
               let normPName = normalizeName(pName);
               if (normPName === normProductName) {
                 let normField = normalizeName(field);
+
+                // ranking 字段处理
                 if (normField.startsWith("ranking_")) {
                   hasRanking = true;
                   if (!validRanking.includes(normField)) {
                     normField = "ranking_other_criteria";
                   }
+                  fields[normField] = data[key];
+                  continue;
                 }
-                if (normField.startsWith("claims_mgt")) {
-                  claimMgtCount++;
-                  if (claimMgtCount >= 5) {
-                    normField = "claims_mgt_other";
-                  }
-                } else if (normField.startsWith("claims_")) {
-                  claimCount++;
-                  if (claimCount >= 5) {
-                    normField = "claims_other";
+
+                // claims / claims_mgt 字段处理
+                if (normField.startsWith("claims_mgt") || normField.startsWith("claims_")) {
+                  const isMgt = normField.startsWith("claims_mgt");
+                  const suffix = isMgt
+                    ? normField.replace(/^claims_mgt_/, "")
+                    : normField.replace(/^claims_/, "");
+
+                  // 如果 suffix = other_claim_name，则改成 *_other
+                  if (otherClaimNorm && suffix === otherClaimNorm) {
+                    normField = isMgt ? "claims_mgt_other" : "claims_other";
+                  } else {
+                    // 保留原有计数逻辑（前 4 个保留原名，第 5 个改成 *_other）
+                    if (isMgt) {
+                      claimMgtCount++;
+                      if (claimMgtCount >= 5) normField = "claims_mgt_other";
+                    } else {
+                      claimCount++;
+                      if (claimCount >= 5) normField = "claims_other";
+                    }
                   }
                 }
+
                 fields[normField] = data[key];
               }
             }
+
+            // 保留 other_* 字段，包括 other_claim_name
             if (key.startsWith("other")) {
               fields[normalizeName(key)] = data[key];
             }
           }
+
           if (!hasRanking) {
             fields["ranking_other_criteria"] = "";
           }
+
           return fields;
         });
+
 
         const output1 = { records: [{ fields: generalFields }] };
         const output2 = {
@@ -1647,7 +1675,7 @@
           const records = recordsToAirtable.records;
 
           try {
-            // 1. 查询是否已有记录
+            // 1. Query existing records
             const queryUrl = `${baseUrl}?filterByFormula=${encodeURIComponent(
               `{customerKey}='${clientKey}'`
             )}`;
@@ -1664,7 +1692,7 @@
 
             const recordIds = queryData.records.map((r) => r.id);
 
-            // 2. 分批删除已有记录（每批最多10条）
+            // 2. Delete existing records (max 10 per batch)
             if (recordIds.length > 0) {
               console.log(
                 `⚠️ Found ${recordIds.length} existing records for customerKey=${clientKey}, deleting...`
@@ -1690,7 +1718,7 @@
               console.log(`✅ No existing records for customerKey=${clientKey}`);
             }
 
-            // 3. 分批插入新记录（每批最多10条）
+            // 3. Insert new records (max 10 per batch)
             for (let i = 0; i < records.length; i += batchSize) {
               const batch = { records: records.slice(i, i + batchSize) };
               const createResponse = await fetch(baseUrl, {
@@ -1718,31 +1746,40 @@
               `❌ Error creating records in table ${tableName}:`,
               error.message
             );
+
+            // 🔔 Alert for customer
+            alert(
+              `❌ Data submission failed.\n\nError details: ${error.message}\n\nPlease take a screenshot and send it to: yong.xue@b2g-consulting.com`
+            );
+
             return false;
           }
         }
 
 
-        // createRecords(output1, "General fields External");
-        // createRecords(output2, "Product fields External");
+
         Promise.all([
           createRecords(output1, "General fields External", customerKey),
           createRecords(output2, "Product fields External", customerKey),
         ]).then((results) => {
-          // 检查两个请求是否都成功
           if (results.every((result) => result === true)) {
-            document.getElementById("messageModal").style.display = "flex"; // 显示
+            // Both succeeded
+            document.getElementById("messageModal").style.display = "flex";
+          } else {
+            // At least one failed
+            alert(
+              "⚠️ Some data was not submitted successfully.\n\nPlease check your network and try again. If the problem persists, take a screenshot and send it to: yong.xue@b2g-consulting.com"
+            );
           }
 
-          document
-            .getElementById("closeModal")
-            .addEventListener("click", () => {
-              document.getElementById("messageModal").style.display = "none"; // 隐藏
-              blurLocked = true;
-              document.getElementById("surveyForm").reset();
-              blurLocked = false;
-            });
+          document.getElementById("closeModal").addEventListener("click", () => {
+            document.getElementById("messageModal").style.display = "none";
+            blurLocked = true;
+            document.getElementById("surveyForm").reset();
+            blurLocked = false;
+          });
         });
+
       });
   </script>
 </body>
