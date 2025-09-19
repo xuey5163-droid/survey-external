@@ -1155,10 +1155,10 @@
       leadTimeThead.innerHTML = "<th>Product</th>";
       const otherLeadTime = getOtherValue("other_lead_time");
       const topicsDisplayed = [];
+
       leadTimeList.forEach((lt) => {
         if (lt !== "More than 10 weeks" || otherLeadTime) {
-          const label =
-            lt === "More than 10 weeks" ? otherLeadTime || lt : lt;
+          const label = lt === "More than 10 weeks" ? otherLeadTime || lt : lt;
           const key = label.replace(/\W+/g, "_");
           topicsDisplayed.push({ label, key });
           const th = document.createElement("th");
@@ -1166,39 +1166,52 @@
           leadTimeThead.appendChild(th);
         }
       });
+
       const leadTimeTbody = document.querySelector("#leadTimeTable tbody");
+
+      // 删除不存在的产品行
       Array.from(leadTimeTbody.rows).forEach((row) => {
         const productName = row.cells[0].textContent.trim();
         if (!products.some((p) => p.name === productName)) {
           row.remove();
         }
       });
+
       const existingProducts = Array.from(leadTimeTbody.rows).map((row) =>
         row.cells[0].textContent.trim()
       );
+
+      // 新增产品行
       products.forEach((product) => {
         if (!existingProducts.includes(product.name)) {
           const row = document.createElement("tr");
           const productTd = document.createElement("td");
           productTd.textContent = product.name;
           row.appendChild(productTd);
-          topicsDisplayed.forEach((topic) => {
+
+          topicsDisplayed.forEach((topic, i) => {
             const td = document.createElement("td");
             const input = document.createElement("input");
             input.type = "radio";
             input.name = `lead_time|${product.name}`;
             input.value = topic.key;
+            if (i === 0) input.required = true; // ✅ 每行只设置一次 required
             td.appendChild(input);
             row.appendChild(td);
           });
+
           leadTimeTbody.appendChild(row);
         }
       });
+
+      // 修正现有行的列
       Array.from(leadTimeTbody.rows).forEach((row) => {
         const productName = row.cells[0].textContent.trim();
+
         while (row.cells.length > topicsDisplayed.length + 1) {
           row.deleteCell(row.cells.length - 1);
         }
+
         for (let i = 0; i < topicsDisplayed.length; i++) {
           const topic = topicsDisplayed[i];
           let td = row.cells[i + 1];
@@ -1206,23 +1219,27 @@
             td = document.createElement("td");
             row.appendChild(td);
           }
+
           let input = td.querySelector("input[type='radio']");
           if (input) {
             const checked = input.checked;
             input.name = `lead_time|${productName}`;
             input.value = topic.key;
             input.checked = checked;
+            if (i === 0) input.required = true; // ✅ 保持 required
           } else {
             td.innerHTML = "";
             input = document.createElement("input");
             input.type = "radio";
             input.name = `lead_time|${productName}`;
             input.value = topic.key;
+            if (i === 0) input.required = true; // ✅ 保持 required
             td.appendChild(input);
           }
         }
       });
     }
+
 
     function attachClaimsInputListeners() {
       const claimsInputs = document.querySelectorAll(
