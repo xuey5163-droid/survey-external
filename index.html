@@ -766,11 +766,11 @@
         let selEnd = input.selectionEnd;
 
         // 只保留数字和小数点
-        let cleaned = input.value.replace(/[^\d.-]/g, "");
+        let cleaned = input.value.replace(/[^\d.]/g, "");
         let num = parseFloat(cleaned) / 100;
         if (isNaN(num)) num = 0;
         if (num > 1) num = 1;
-        if (num < -1) num = -1;
+        if (num < 0) num = 0;
         input.dataset.rawValue = num;
 
         input.value = cleaned;
@@ -1622,14 +1622,12 @@
         console.log(JSON.stringify(output1, null, 2));
         console.log(JSON.stringify(output2, null, 2));
 
-        async function createRecords(
-          recordsToAirtable,
-          tableName,
-          clientKey
-        ) {
+        async function createRecords(recordsToAirtable, tableName, clientKey) {
           const baseUrl = `https://api.airtable.com/v0/${BASE_ID}/${encodeURIComponent(
             tableName
           )}`;
+          const batchSize = 10;
+          const records = recordsToAirtable.records;
 
           try {
             // 1. 查询是否已有记录
@@ -1649,58 +1647,53 @@
 
             const recordIds = queryData.records.map((r) => r.id);
 
-            // 2. 如果有记录 → 先删除
+            // 2. 分批删除已有记录（每批最多10条）
             if (recordIds.length > 0) {
               console.log(
                 `⚠️ Found ${recordIds.length} existing records for customerKey=${clientKey}, deleting...`
               );
 
-              const deleteUrl = `${baseUrl}?${recordIds
-                .map((id) => `records[]=${id}`)
-                .join("&")}`;
-              const deleteResponse = await fetch(deleteUrl, {
-                method: "DELETE",
-                headers: { Authorization: `Bearer ${AIRTABLE_API_KEY}` },
+              for (let i = 0; i < recordIds.length; i += batchSize) {
+                const batchIds = recordIds.slice(i, i + batchSize);
+                const deleteUrl = `${baseUrl}?${batchIds.map((id) => `records[]=${id}`).join("&")}`;
+
+                const deleteResponse = await fetch(deleteUrl, {
+                  method: "DELETE",
+                  headers: { Authorization: `Bearer ${AIRTABLE_API_KEY}` },
+                });
+
+                if (!deleteResponse.ok) {
+                  throw new Error(
+                    `Error deleting old records: ${deleteResponse.status} ${await deleteResponse.text()}`
+                  );
+                }
+                console.log(`🗑️ Deleted ${batchIds.length} records successfully`);
+              }
+            } else {
+              console.log(`✅ No existing records for customerKey=${clientKey}`);
+            }
+
+            // 3. 分批插入新记录（每批最多10条）
+            for (let i = 0; i < records.length; i += batchSize) {
+              const batch = { records: records.slice(i, i + batchSize) };
+              const createResponse = await fetch(baseUrl, {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify(batch),
               });
 
-              if (!deleteResponse.ok) {
+              if (!createResponse.ok) {
                 throw new Error(
-                  `Error deleting old records: ${deleteResponse.status
-                  } ${await deleteResponse.text()}`
+                  `Error ${createResponse.status}: ${await createResponse.text()}`
                 );
               }
 
-              console.log(
-                `🗑️ Deleted ${recordIds.length} records successfully`
-              );
-            } else {
-              console.log(
-                `✅ No existing records for customerKey=${clientKey}`
-              );
+              const data = await createResponse.json();
+              console.log(`✅ Batch created successfully in table ${tableName}:`, data);
             }
-
-            // 3. 插入新记录
-            const createResponse = await fetch(baseUrl, {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${AIRTABLE_API_KEY}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(recordsToAirtable),
-            });
-
-            if (!createResponse.ok) {
-              throw new Error(
-                `Error ${createResponse.status
-                }: ${await createResponse.text()}`
-              );
-            }
-
-            const data = await createResponse.json();
-            console.log(
-              `✅ Records created successfully in table ${tableName}:`
-            );
-            console.log(JSON.stringify(data, null, 2));
 
             return true;
           } catch (error) {
@@ -1711,6 +1704,7 @@
             return false;
           }
         }
+
 
         // createRecords(output1, "General fields External");
         // createRecords(output2, "Product fields External");
@@ -1737,5 +1731,3 @@
 </body>
 
 </html>
-
-
