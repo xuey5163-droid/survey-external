@@ -303,7 +303,8 @@
 
 <body>
   <div class="imagecontainer">
-    <img src="https://thaivest.com/wp-content/uploads/2011/11/1620.jpg" alt="Indorama Logo" class="logo" />
+    <img src="https://mms.businesswire.com/media/20230601005873/fr/1808674/4/2018_10_05_corp_ivl_logo_full_RGB.jpg"
+      alt="Indorama Logo" class="logo" />
   </div>
   <div class="prologue">
     <h1>
@@ -330,7 +331,8 @@
         <div class="customer-info">
           <span>Client Key</span>
           <div class="dropdown">
-            <input type="text" id="searchInput" name="customer" autocomplete="off" placeholder="Please input client key ..." required />
+            <input type="text" id="searchInput" name="customer" autocomplete="off"
+              placeholder="Please input client key ..." required />
           </div>
         </div>
       </div>
@@ -1158,7 +1160,8 @@
 
       leadTimeList.forEach((lt) => {
         if (lt !== "More than 10 weeks" || otherLeadTime) {
-          const label = lt === "More than 10 weeks" ? otherLeadTime || lt : lt;
+          const label =
+            lt === "More than 10 weeks" ? otherLeadTime || lt : lt;
           const key = label.replace(/\W+/g, "_");
           topicsDisplayed.push({ label, key });
           const th = document.createElement("th");
@@ -1239,7 +1242,6 @@
         }
       });
     }
-
 
     function attachClaimsInputListeners() {
       const claimsInputs = document.querySelectorAll(
@@ -1601,7 +1603,9 @@
 
           // 获取 other_claim_name
           const otherClaimRaw = data["other_claim_name"];
-          const otherClaimNorm = otherClaimRaw ? normalizeName(otherClaimRaw) : null;
+          const otherClaimNorm = otherClaimRaw
+            ? normalizeName(otherClaimRaw)
+            : null;
 
           for (let key in data) {
             if (key.includes("|")) {
@@ -1621,7 +1625,10 @@
                 }
 
                 // claims / claims_mgt 字段处理
-                if (normField.startsWith("claims_mgt") || normField.startsWith("claims_")) {
+                if (
+                  normField.startsWith("claims_mgt") ||
+                  normField.startsWith("claims_")
+                ) {
                   const isMgt = normField.startsWith("claims_mgt");
                   const suffix = isMgt
                     ? normField.replace(/^claims_mgt_/, "")
@@ -1659,7 +1666,6 @@
           return fields;
         });
 
-
         const output1 = { records: [{ fields: generalFields }] };
         const output2 = {
           records: productFields.map((f) => ({ fields: f })),
@@ -1667,7 +1673,11 @@
         console.log(JSON.stringify(output1, null, 2));
         console.log(JSON.stringify(output2, null, 2));
 
-        async function createRecords(recordsToAirtable, tableName, clientKey) {
+        async function createRecords(
+          recordsToAirtable,
+          tableName,
+          clientKey
+        ) {
           const baseUrl = `https://api.airtable.com/v0/${BASE_ID}/${encodeURIComponent(
             tableName
           )}`;
@@ -1700,7 +1710,9 @@
 
               for (let i = 0; i < recordIds.length; i += batchSize) {
                 const batchIds = recordIds.slice(i, i + batchSize);
-                const deleteUrl = `${baseUrl}?${batchIds.map((id) => `records[]=${id}`).join("&")}`;
+                const deleteUrl = `${baseUrl}?${batchIds
+                  .map((id) => `records[]=${id}`)
+                  .join("&")}`;
 
                 const deleteResponse = await fetch(deleteUrl, {
                   method: "DELETE",
@@ -1709,13 +1721,18 @@
 
                 if (!deleteResponse.ok) {
                   throw new Error(
-                    `Error deleting old records: ${deleteResponse.status} ${await deleteResponse.text()}`
+                    `Error deleting old records: ${deleteResponse.status
+                    } ${await deleteResponse.text()}`
                   );
                 }
-                console.log(`🗑️ Deleted ${batchIds.length} records successfully`);
+                console.log(
+                  `🗑️ Deleted ${batchIds.length} records successfully`
+                );
               }
             } else {
-              console.log(`✅ No existing records for customerKey=${clientKey}`);
+              console.log(
+                `✅ No existing records for customerKey=${clientKey}`
+              );
             }
 
             // 3. Insert new records (max 10 per batch)
@@ -1732,12 +1749,16 @@
 
               if (!createResponse.ok) {
                 throw new Error(
-                  `Error ${createResponse.status}: ${await createResponse.text()}`
+                  `Error ${createResponse.status
+                  }: ${await createResponse.text()}`
                 );
               }
 
               const data = await createResponse.json();
-              console.log(`✅ Batch created successfully in table ${tableName}:`, data);
+              console.log(
+                `✅ Batch created successfully in table ${tableName}:`,
+                data
+              );
             }
 
             return true;
@@ -1756,12 +1777,19 @@
           }
         }
 
-
+        const submitButton = document.querySelector('button[type="submit"]');
+        if (submitButton) {
+          submitButton.disabled = true;
+          submitButton.textContent = "Submitting... Please wait";
+        }
 
         Promise.all([
           createRecords(output1, "General fields External", customerKey),
           createRecords(output2, "Product fields External", customerKey),
         ]).then((results) => {
+
+          submitButton.disabled = false;
+          submitButton.textContent = "Submit";
           if (results.every((result) => result === true)) {
             // Both succeeded
             document.getElementById("messageModal").style.display = "flex";
@@ -1772,18 +1800,17 @@
             );
           }
 
-          document.getElementById("closeModal").addEventListener("click", () => {
-            document.getElementById("messageModal").style.display = "none";
-            blurLocked = true;
-            document.getElementById("surveyForm").reset();
-            blurLocked = false;
-          });
+          document
+            .getElementById("closeModal")
+            .addEventListener("click", () => {
+              document.getElementById("messageModal").style.display = "none";
+              blurLocked = true;
+              document.getElementById("surveyForm").reset();
+              blurLocked = false;
+            });
         });
-
       });
   </script>
 </body>
 
 </html>
-
-
